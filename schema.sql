@@ -1,29 +1,26 @@
 -- Store all snapshots
-CREATE TABLE inputSnapshots(
+CREATE TABLE input_snapshots(
 	snapshot_id VARCHAR(36) NOT NULL UNIQUE,
 	trace_id VARCHAR(36) NOT NULL UNIQUE,
 	opponent_id VARCHAR(36),
-	identity_id VARCHAR(36),
-	created_at VARCHAR(60),
+	created_at VARCHAR(48),
 	memo VARCHAR(256)
 );
 
--- CREATE TABLE withdrawal(
--- 	address_id VARCHAR(128) NOT NULL UNIQUE,
--- 	amount VARCHAR(16),
--- 	asset_id VARCHAR(36) NOT NULL,
--- 	fee_asset_id VARCHAR(36),
--- 	fee_amount VARCHAR(36),
--- 	pre_order_id VARCHAR(36),
--- 	trace_id VARCHAR(36) NOT NULL UNIQUE,
--- );
+CREATE TABLE swap_orders(
+	order_state VARCHAR(36),
+	follow_id VARCHAR(36),
+	created_at VARCHAR(48),
+	receiver_id VARCHAR(36)
+);
 
--- Store withdrawal snapshot id
-CREATE TABLE withdrawalSnapshots (
-	snapshot_id VARCHAR(36) NOT NULL
-)
-
--- Store all swaps
-CREATE TABLE swaps(
-	snapshot_id VARCHAR(36) NOT NULL
-)
+CREATE TABLE output_snapshots(
+	input_sn_id VARCHAR(36) NOT NULL UNIQUE,
+	snapshot_id VARCHAR(36) NOT NULL UNIQUE,
+	trace_id VARCHAR(36) NOT NULL UNIQUE,
+	to_address VARCHAR(256),
+	memo VARCHAR(256),
+	asset_id VARCHAR(36),
+	amount VARCHAR(36),
+	created_at VARCHAR(48),
+);

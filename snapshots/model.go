@@ -1,20 +1,33 @@
 package snapshots
 
-type InputSnapshots struct {
+type InputSnapshot struct {
 	SnapshotID string `json:"snapshot_id"`
 	TraceID    string `json:"trace_id"`
 	OpponentID string `json:"opponent_id"`
-	IdentityID string `json:"identity_id"`
 	CreatedAt  string `json:"created_at"`
 	Memo       string `json:"memo"`
 }
 
 type TxMemo struct {
-	ToAddress  string `json:"to_address"`
-	Amount     string `json:"amount"`
-	AssetID    string `json:"asset_id"`
-	SwapAmount string `json:"swap_amount"`
-	FeeAssetID string `json:"fee_asset_id"`
-	FeeAmount  string `json:"fee_amount"`
+	ToAddress string `json:"t"`
+	Memo      string `json:"m"`
+	Amount    string `json:"a"`
+}
+
+type SwapOrder struct {
+	FollowID   string `json:"follow_id"`
+	CreatedAt  string `json:"created_at"`
+	OrderState string `json:"order_state"`
+	ReceiverID string `json:"receiver_id"`
+}
+
+type OutputSnapshot struct {
+	InputsnID  string `json:"input_sn_id"`
+	SnapshotID string `json:"snapshot_id"`
 	TraceID    string `json:"trace_id"`
+	ToAddress  string `json:"to_address"`
+	CreatedAt  string `json:"created_at"`
+	AssetID    string `json:"asset_id"`
+	Amount     string `json:"amount"`
+	Memo       string `json:"memo"`
 }
