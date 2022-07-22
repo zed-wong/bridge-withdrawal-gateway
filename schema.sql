@@ -22,5 +22,5 @@ CREATE TABLE output_snapshots(
 	memo VARCHAR(256),
 	asset_id VARCHAR(36),
 	amount VARCHAR(36),
-	created_at VARCHAR(48),
+	created_at VARCHAR(48)
 );

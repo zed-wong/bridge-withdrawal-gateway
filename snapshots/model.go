@@ -22,7 +22,7 @@ type SwapOrder struct {
 }
 
 type OutputSnapshot struct {
-	InputsnID  string `json:"input_sn_id"`
+	InputSnID  string `json:"input_sn_id"`
 	SnapshotID string `json:"snapshot_id"`
 	TraceID    string `json:"trace_id"`
 	ToAddress  string `json:"to_address"`

@@ -62,15 +62,16 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 	if err != nil {
 		log.Println("sw.client.ReadSnapshotsWithOptions() => ", err)
 	}
+	group := GetMtgGroup(ctx)
 	token := sw.ka.SignToken(mixin.SignRaw("GET", "/me", nil), uuid.Must(uuid.NewV4()).String(), 60*time.Minute)
 
 	for i, s := range snaps {
 		state, txmemo := getMemo(s.Memo)
 		if !state {
-			log.Printf("[%d] Not withdrawal memo", i)
+			// log.Printf("[%d] Not withdrawal memo", i)
 			continue
 		}
-		log.Println("Is withdrawal")
+		// log.Println("Is withdrawal")
 		if !checkTxMemo(txmemo) {
 			log.Println("[Error] TxMemo invalid")
 			continue
@@ -108,30 +109,38 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 		}
 		if s.AssetID == feeAsset.AssetID {
 			if swapAmount.LessThan(feeAmount) {
-				//refund
-				log.Println("Refund")
+				err = sw.refund(ctx, s.AssetID, s.OpponentID, s.Amount, sw.pin)
+				if err != nil {
+					log.Println("swapAmount.LessThan(feeAmount), refund() =>", err)
+				}
 				continue
 			}
 		} else {
 			order, err := PreOrder(ctx, s.AssetID, feeAsset.AssetID, swapAmount)
 			if err != nil {
-				//refund
-				log.Println("PreOrder() =>", err)
+				err = sw.refund(ctx, s.AssetID, s.OpponentID, s.Amount, sw.pin)
+				if err != nil {
+					log.Println("PreOrder error, refund() =>", err)
+				}
 				continue
 			}
 			if order.FillAmount.Sub(feeAmount).IsNegative() {
-				//refund
-				log.Println("Fee amount is not enought")
+				err = sw.refund(ctx, s.AssetID, s.OpponentID, s.Amount, sw.pin)
+				if err != nil {
+					log.Println("PreOrder feeAmount not enough, refund() =>", err)
+				}
 				continue
 			}
 		}
 		//   s.OpponentID
 		if s.AssetID != feeAsset.AssetID {
-			followID := sw.Swap(sw.client, ctx, sw.client.ClientID, s.AssetID, feeAsset.AssetID, mixin.RandomTraceID(), swapAmount, feeAmount)
-			sw.WriteSwap(s.OpponentID, followID, time.Now().String())
-			if !WaitForSwap(ctx, token, followID) {
-				log.Println("Swap failed, should retry")
+			followID := mixin.RandomTraceID()
+			sw.Swap(group, ctx, sw.client.ClientID, s.AssetID, feeAsset.AssetID, followID, "", swapAmount, feeAmount)
+			newOrder, err := ReadOrder(ctx, token, followID)
+			if err != nil {
+				log.Println("ReadOrder() => ", err)
 			}
+			sw.WriteSwap(s.OpponentID, followID, time.Now().Format(time.RFC3339), newOrder.State)
 		}
 
 		//   Withdrawal
@@ -173,6 +182,21 @@ func (sw *SnapshotsWorker) checkSnapshotExist(snapshotID string) bool {
 		log.Println("checkSnapshotExist() => ", err)
 	}
 	return exist
+}
+
+func (sw *SnapshotsWorker) refund(ctx context.Context, assetID, receiverID string, amount decimal.Decimal, pin string) error {
+	payload := base64.StdEncoding.EncodeToString([]byte("Refund from Withdrawal Gateway"))
+	input := &mixin.TransferInput{
+		AssetID:    assetID,
+		OpponentID: receiverID,
+		Amount:     amount,
+		TraceID:    uuid.Must(uuid.NewV4()).String(),
+		Memo:       payload,
+	}
+	if _, err := sw.client.Transfer(ctx, input, pin); err != nil {
+		return err
+	}
+	return nil
 }
 
 func getMemo(UTXOmemo string) (bool, *TxMemo) {

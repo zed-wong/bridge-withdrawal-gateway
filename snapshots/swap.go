@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"time"
 
 	fswap "github.com/fox-one/4swap-sdk-go"
 	mtg "github.com/fox-one/4swap-sdk-go/mtg"
@@ -12,23 +11,22 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-var (
-	group, _ = fswap.ReadGroup(context.Background())
-)
-
-func (sw *SnapshotsWorker) Swap(client *mixin.Client, ctx context.Context, receiverID, fromAssetID, toAssetID, followID string, swapAmount, min decimal.Decimal) string {
+func (sw *SnapshotsWorker) Swap(group *fswap.Group, ctx context.Context, receiverID, fromAssetID, toAssetID, followID, routes string, swapAmount, min decimal.Decimal) error {
 	action := mtg.SwapAction(
 		receiverID,
 		followID,
 		toAssetID,
-		"",
+		routes,
 		min,
 	)
 	memo, err := action.Encode(group.PublicKey)
 	if err != nil {
 		log.Println("Swap.Encode() =>", err)
+		return err
 	}
-	tx, err := client.Transaction(ctx, &mixin.TransferInput{
+	log.Println("group:", group.Members)
+	log.Println("encoded memo:", memo)
+	tx, err := sw.client.Transaction(ctx, &mixin.TransferInput{
 		AssetID: fromAssetID,
 		Amount:  swapAmount,
 		TraceID: mixin.RandomTraceID(),
@@ -43,11 +41,10 @@ func (sw *SnapshotsWorker) Swap(client *mixin.Client, ctx context.Context, recei
 	}, sw.pin)
 	if err != nil {
 		log.Println("Swap.Transaction() => ", err)
-		return ""
+		return err
 	}
-	log.Println("Swap tx:", tx)
-	sw.WriteSwap(tx.SnapshotID, followID, time.Now().String())
-	return followID
+	log.Printf("Swap tx: %+v \n", tx)
+	return nil
 }
 
 func PreOrder(ctx context.Context, payAssetID, fillAssetID string, payAmount decimal.Decimal) (*fswap.Order, error) {
@@ -58,42 +55,21 @@ func PreOrder(ctx context.Context, payAssetID, fillAssetID string, payAmount dec
 	})
 }
 
-func readOrder(ctx context.Context, token, followID string) (int, error) {
+func ReadOrder(ctx context.Context, token, followID string) (*fswap.Order, error) {
+	fswap.UseEndpoint(fswap.MtgEndpoint)
 	if len(followID) == 0 {
-		return 0, errors.New("Swap Failed")
+		return nil, errors.New("Swap Failed")
 	}
 	ctx = fswap.WithToken(ctx, token)
 	order, err := fswap.ReadOrder(ctx, followID)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	log.Println("Swap state:", order.State)
-	switch order.State {
-	case "Trading":
-		return 1, nil
-	case "Rejected":
-		return 0, errors.New("Swap Rejected")
-	case "Done":
-		return 2, nil
-	}
-	return 3, errors.New("unknown case")
+	return order, err
 }
 
-func WaitForSwap(ctx context.Context, token, followID string) bool {
-	for {
-		code, err := readOrder(ctx, token, followID)
-		if err != nil {
-			return false
-		}
-
-		switch code {
-		case 1:
-			continue
-		case 2:
-			return true
-		case 0, 3:
-			return false
-		}
-		time.Sleep(1 * time.Second)
-	}
+func GetMtgGroup(ctx context.Context) *fswap.Group {
+	fswap.UseEndpoint(fswap.MtgEndpoint)
+	group, _ := fswap.ReadGroup(ctx)
+	return group
 }

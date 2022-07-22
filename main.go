@@ -7,7 +7,6 @@ import (
 	"main/message"
 	"main/snapshots"
 
-	fswap "github.com/fox-one/4swap-sdk-go"
 	"github.com/fox-one/mixin-sdk-go"
 	"github.com/spf13/viper"
 )
@@ -21,7 +20,6 @@ func main() {
 		panic(fmt.Errorf("fatal error config file: %w", err))
 	}
 
-	fswap.UseEndpoint(fswap.MtgEndpoint)
 	store := &mixin.Keystore{
 		ClientID:   viper.GetString("bot.clientID"),
 		SessionID:  viper.GetString("bot.sessionID"),
