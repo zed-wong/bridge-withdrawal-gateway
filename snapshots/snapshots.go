@@ -63,32 +63,32 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 		log.Println("sw.client.ReadSnapshotsWithOptions() => ", err)
 	}
 	group := GetMtgGroup(ctx)
-	token := sw.ka.SignToken(mixin.SignRaw("GET", "/me", nil), uuid.Must(uuid.NewV4()).String(), 60*time.Minute)
 
-	for i, s := range snaps {
+	for _, s := range snaps {
 		state, txmemo := getMemo(s.Memo)
 		if !state {
 			// log.Printf("[%d] Not withdrawal memo", i)
 			continue
 		}
-		// log.Println("Is withdrawal")
 		if !checkTxMemo(txmemo) {
-			log.Println("[Error] TxMemo invalid")
 			continue
 		}
-		log.Println("Memo valid")
 		if sw.checkSnapshotExist(s.SnapshotID) {
-			log.Println("Snapshot exist")
 			continue
 		}
-		//   Write Snapshot DB
-		log.Println("Snapshot doesn't exist")
-		fmt.Printf("%d: %+v\n\n", i, s)
 		sw.WriteInputSnapshot(s)
 
-		feeAsset, err := sw.client.ReadAsset(ctx, s.AssetID)
+		log.Println("Valid")
+		fmt.Printf("%+v\n\n", s)
+
+		Asset, err := sw.client.ReadAsset(ctx, s.AssetID)
 		if err != nil {
-			log.Println("ReadAsset() => ", err)
+			log.Println("ReadAsset(s.AssetID) => ", err)
+			continue
+		}
+		feeAsset, err := sw.client.ReadAsset(ctx, Asset.ChainID)
+		if err != nil {
+			log.Println("ReadAsset(Asset.ChainID) => ", err)
 			continue
 		}
 		feeAmount, err := sw.client.ReadAssetFee(ctx, s.AssetID)
@@ -102,20 +102,19 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 			continue
 		}
 
-		swapAmount := s.Amount.Sub(memoAmount)
-		if swapAmount.IsNegative() {
-			log.Println("Withdrawal amount is negative.")
-			continue
-		}
 		if s.AssetID == feeAsset.AssetID {
-			if swapAmount.LessThan(feeAmount) {
+			leftAmount := s.Amount.Sub(memoAmount)
+			if leftAmount.LessThan(feeAmount) {
 				err = sw.refund(ctx, s.AssetID, s.OpponentID, s.Amount, sw.pin)
 				if err != nil {
-					log.Println("swapAmount.LessThan(feeAmount), refund() =>", err)
+					log.Println("leftAmount.LessThan(feeAmount), refund() =>", err)
 				}
 				continue
 			}
-		} else {
+		}
+		log.Println("Basic fee check passed")
+		if s.AssetID != feeAsset.AssetID {
+			swapAmount := s.Amount.Sub(memoAmount)
 			order, err := PreOrder(ctx, s.AssetID, feeAsset.AssetID, swapAmount)
 			if err != nil {
 				err = sw.refund(ctx, s.AssetID, s.OpponentID, s.Amount, sw.pin)
@@ -131,18 +130,40 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 				}
 				continue
 			}
-		}
-		//   s.OpponentID
-		if s.AssetID != feeAsset.AssetID {
-			followID := mixin.RandomTraceID()
-			sw.Swap(group, ctx, sw.client.ClientID, s.AssetID, feeAsset.AssetID, followID, "", swapAmount, feeAmount)
-			newOrder, err := ReadOrder(ctx, token, followID)
-			if err != nil {
-				log.Println("ReadOrder() => ", err)
-			}
-			sw.WriteSwap(s.OpponentID, followID, time.Now().Format(time.RFC3339), newOrder.State)
-		}
+			log.Println("Swap fee check passed")
 
+			followID := mixin.RandomTraceID()
+			log.Println("FollowID:", followID)
+
+			if err = sw.Swap(group, ctx, sw.client.ClientID, s.AssetID, feeAsset.AssetID, followID, "", swapAmount, feeAmount); err != nil {
+				log.Println("sw.Swap() => ", err)
+				continue
+			}
+
+			Address, err := sw.client.CreateAddress(ctx, mixin.CreateAddressInput{
+				AssetID:     s.AssetID,
+				Destination: txmemo.ToAddress,
+				Tag:         txmemo.Memo,
+				Label:       "1",
+			}, sw.pin)
+			if err != nil {
+				log.Println("sw.client.CreateAddress() => ", err)
+				continue
+			}
+			sw.WriteSwap(&SwapOrder{
+				FollowID:   followID,
+				CreatedAt:  time.Now().Format(time.RFC3339),
+				OrderState: "Init",
+				OpponentID: s.OpponentID,
+				InputSnID:  s.SnapshotID,
+				AddressID:  Address.AddressID,
+				ToAddress:  txmemo.ToAddress,
+				ToMemo:     txmemo.Memo,
+				Amount:     txmemo.Amount,
+				Withdrawn:  false,
+			})
+			return
+		}
 		//   Withdrawal
 		Address, err := sw.client.CreateAddress(ctx, mixin.CreateAddressInput{
 			AssetID:     s.AssetID,
@@ -154,25 +175,32 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 			log.Println("sw.client.CreateAddress() => ", err)
 			continue
 		}
-		Amount, err := decimal.NewFromString(txmemo.Amount)
+
+		err = sw.withdrwal(ctx, Address.AddressID, s.SnapshotID, txmemo.ToAddress, txmemo.Memo, txmemo.Amount)
 		if err != nil {
-			log.Println(err)
-			continue
+			log.Println("sw.withdrawal() => ", err)
 		}
-		input := &mixin.WithdrawInput{
-			AddressID: Address.AddressID,
-			Amount:    Amount,
-			TraceID:   uuid.Must(uuid.NewV4()).String(),
-			Memo:      txmemo.Memo,
-		}
-		tx, err := sw.client.Withdraw(ctx, *input, sw.pin)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		sw.WriteOutputSnapshot(tx, s.SnapshotID, txmemo.ToAddress)
 	}
-	fmt.Printf("\n\n\n")
+}
+
+func (sw *SnapshotsWorker) withdrwal(ctx context.Context, addressID, inputSnapshotID, toAddress, toMemo, amount string) error {
+	Amount, err := decimal.NewFromString(amount)
+	if err != nil {
+		return err
+	}
+	input := &mixin.WithdrawInput{
+		AddressID: addressID,
+		Amount:    Amount,
+		TraceID:   uuid.Must(uuid.NewV4()).String(),
+		Memo:      toMemo,
+	}
+	tx, err := sw.client.Withdraw(ctx, *input, sw.pin)
+	if err != nil {
+		return err
+	}
+	sw.WriteOutputSnapshot(tx, inputSnapshotID, toAddress)
+	log.Printf("Withdrawal success: %+v", tx)
+	return nil
 }
 
 func (sw *SnapshotsWorker) checkSnapshotExist(snapshotID string) bool {

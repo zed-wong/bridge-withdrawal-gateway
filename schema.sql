@@ -8,10 +8,16 @@ CREATE TABLE input_snapshots(
 );
 
 CREATE TABLE swap_orders(
+	input_sn_id VARCHAR(36),
 	order_state VARCHAR(36),
 	follow_id VARCHAR(36),
 	created_at VARCHAR(48),
-	receiver_id VARCHAR(36)
+	opponent_id VARCHAR(36),
+	address_id VARCHAR(36),
+	to_address VARCHAR(36),
+	to_memo VARCHAR(256),
+	amount VARCHAR(36),
+	withdrawn BOOLEAN
 );
 
 CREATE TABLE output_snapshots(

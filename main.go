@@ -32,5 +32,6 @@ func main() {
 	go messsageWorker.Loop(ctx)
 
 	snapshotWorker := snapshots.NewSnapshotsWorker(ctx, store, dsn, viper.GetString("bot.pin"))
-	snapshotWorker.Loop(ctx)
+	go snapshotWorker.Loop(ctx)
+	snapshotWorker.LoopSwap(ctx)
 }

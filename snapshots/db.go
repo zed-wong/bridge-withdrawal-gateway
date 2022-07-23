@@ -20,15 +20,17 @@ func (sw *SnapshotsWorker) WriteInputSnapshot(s *mixin.Snapshot) {
 	}
 }
 
-func (sw *SnapshotsWorker) WriteSwap(receiverID, followID, time, state string) {
-	result := sw.db.Create(&SwapOrder{
-		ReceiverID: receiverID,
-		FollowID:   followID,
-		CreatedAt:  time,
-		OrderState: state,
-	})
+func (sw *SnapshotsWorker) WriteSwap(order *SwapOrder) {
+	result := sw.db.Create(order)
 	if result.Error != nil {
-		log.Println("db.Create(WriteSnapshots) => ", result.Error)
+		log.Println("db.WriteSwap() => ", result.Error)
+	}
+}
+
+func (sw *SnapshotsWorker) UpdateSwap(newOrder *SwapOrder, followID string) {
+	result := sw.db.Model(&SwapOrder{}).Where("follow_id = ?", followID).Updates(newOrder)
+	if result.Error != nil {
+		log.Println("db.UpdateSwap() => ", result.Error)
 	}
 }
 

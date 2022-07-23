@@ -18,7 +18,14 @@ type SwapOrder struct {
 	FollowID   string `json:"follow_id"`
 	CreatedAt  string `json:"created_at"`
 	OrderState string `json:"order_state"`
-	ReceiverID string `json:"receiver_id"`
+	OpponentID string `json:"opponent_id"`
+	// For withdrawal
+	InputSnID string `json:"input_sn_id"`
+	AddressID string `json:"address_id"`
+	ToAddress string `json:"to_address"`
+	ToMemo    string `json:"to_memo"`
+	Amount    string `json:"amount"`
+	Withdrawn bool   `json:"withdrawn"`
 }
 
 type OutputSnapshot struct {
