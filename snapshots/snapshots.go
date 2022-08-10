@@ -139,6 +139,7 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 				log.Println("sw.Swap() => ", err)
 				continue
 			}
+			log.Println("Swap Sent.")
 
 			Address, err := sw.client.CreateAddress(ctx, mixin.CreateAddressInput{
 				AssetID:     s.AssetID,

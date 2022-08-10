@@ -61,7 +61,7 @@ func (sw *SnapshotsWorker) LoopSwap(ctx context.Context) {
 			if !o.Withdrawn {
 				new, err := ReadOrder(ctx, token, o.FollowID)
 				log.Printf("new: %+v", new)
-				log.Printf("o: %+v", o)
+				//log.Printf("o: %+v", o)
 				if err != nil {
 					log.Println("ReadOrder() => ", err)
 					continue
@@ -69,9 +69,11 @@ func (sw *SnapshotsWorker) LoopSwap(ctx context.Context) {
 				sw.UpdateSwap(&SwapOrder{OrderState: new.State}, o.FollowID)
 
 				if new.State == "Done" {
+					time.Sleep(5*time.Second)
 					err := sw.withdrwal(ctx, o.AddressID, o.InputSnID, o.ToAddress, o.ToMemo, o.Amount)
 					if err != nil {
 						log.Println("LoopSwap.withdrawal() => ", err)
+						return
 					}
 					sw.UpdateSwap(&SwapOrder{Withdrawn: true}, o.FollowID)
 				}
