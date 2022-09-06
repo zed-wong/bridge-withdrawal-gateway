@@ -248,7 +248,7 @@ func getMemo(UTXOmemo string) (bool, *TxMemo) {
 }
 
 func checkTxMemo(memo *TxMemo) bool {
-	if len(memo.ToAddress) == 0 || len(memo.ToAddress) > 100 {
+	if len(memo.ToAddress) == 0 {
 		return false
 	}
 	_, err := decimal.NewFromString(memo.Amount)
