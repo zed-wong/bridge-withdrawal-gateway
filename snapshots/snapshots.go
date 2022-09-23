@@ -65,12 +65,14 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 	group := GetMtgGroup(ctx)
 
 	for _, s := range snaps {
+		fmt.Printf("%+v\n\n", s)
 		state, txmemo := getMemo(s.Memo)
 		if !state {
 			// log.Printf("[%d] Not withdrawal memo", i)
 			continue
 		}
 		if !checkTxMemo(txmemo) {
+			log.Printf("TxMemo Invalid: %+v", s)
 			continue
 		}
 		if sw.checkSnapshotExist(s.SnapshotID) {
@@ -177,14 +179,14 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 			continue
 		}
 
-		err = sw.withdrwal(ctx, Address.AddressID, s.SnapshotID, txmemo.ToAddress, txmemo.Memo, txmemo.Amount)
+		err = sw.withdrawal(ctx, Address.AddressID, s.SnapshotID, txmemo.ToAddress, txmemo.Memo, txmemo.Amount)
 		if err != nil {
 			log.Println("sw.withdrawal() => ", err)
 		}
 	}
 }
 
-func (sw *SnapshotsWorker) withdrwal(ctx context.Context, addressID, inputSnapshotID, toAddress, toMemo, amount string) error {
+func (sw *SnapshotsWorker) withdrawal(ctx context.Context, addressID, inputSnapshotID, toAddress, toMemo, amount string) error {
 	Amount, err := decimal.NewFromString(amount)
 	if err != nil {
 		return err

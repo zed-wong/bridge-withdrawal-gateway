@@ -92,7 +92,7 @@ func TestLoopSwap(t *testing.T) {
 }
 
 func TestDB(t *testing.T) {
-	dsn := "host=localhost user=zed password=dk dbname=mvm-gateway port=5432 sslmode=disable"
+	dsn := "host=localhost user= password= dbname= port=5432 sslmode=disable"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic(err)
@@ -104,6 +104,32 @@ func TestDB(t *testing.T) {
 
 	for i, r := range order {
 		log.Printf("%d: %+v\n", i, r)
+	}
+}
+
+func TestReadUTXO(t *testing.T) {
+	ctx := context.Background()
+	store := &mixin.Keystore{
+		ClientID:   "",
+		SessionID:  "",
+		PrivateKey: "",
+		PinToken:   "",
+		Scope:      "",
+	}
+	client, _ := mixin.NewFromKeystore(store)
+
+	snaps, err := client.ReadSnapshotsWithOptions(ctx, time.Now(), 30, mixin.ReadSnapshotsOptions{
+		Order:         "",
+		AssetID:       "",
+		OpponentID:    "",
+		DestinationID: "",
+		Tag:           "",
+	})
+	if err != nil {
+		log.Println("sw.client.ReadSnapshotsWithOptions() => ", err)
+	}
+	for _, s := range snaps {
+		log.Printf("%+v", s)
 	}
 }
 
