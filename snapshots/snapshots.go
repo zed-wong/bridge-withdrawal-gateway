@@ -78,10 +78,9 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 		if sw.checkSnapshotExist(s.SnapshotID) {
 			continue
 		}
-		sw.WriteInputSnapshot(s)
 
-		log.Println("Valid")
-		fmt.Printf("%+v\n\n", s)
+		//log.Println("Valid")
+		//fmt.Printf("%+v\n\n", s)
 
 		Asset, err := sw.client.ReadAsset(ctx, s.AssetID)
 		if err != nil {
@@ -104,6 +103,8 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 			continue
 		}
 
+		sw.WriteInputSnapshot(s)
+
 		if s.AssetID == feeAsset.AssetID {
 			leftAmount := s.Amount.Sub(memoAmount)
 			if leftAmount.LessThan(feeAmount) {
@@ -114,7 +115,7 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 				continue
 			}
 		}
-		log.Println("Basic fee check passed")
+		//log.Println("Basic fee check passed")
 		if s.AssetID != feeAsset.AssetID {
 			swapAmount := s.Amount.Sub(memoAmount)
 			order, err := PreOrder(ctx, s.AssetID, feeAsset.AssetID, swapAmount)
@@ -132,16 +133,16 @@ func (sw *SnapshotsWorker) MonitorSnapshots(ctx context.Context) {
 				}
 				continue
 			}
-			log.Println("Swap fee check passed")
+			//log.Println("Swap fee check passed")
 
 			followID := mixin.RandomTraceID()
-			log.Println("FollowID:", followID)
+			//log.Println("FollowID:", followID)
 
 			if err = sw.Swap(group, ctx, sw.client.ClientID, s.AssetID, feeAsset.AssetID, followID, "", swapAmount, feeAmount); err != nil {
 				log.Println("sw.Swap() => ", err)
 				continue
 			}
-			log.Println("Swap Sent.")
+			//log.Println("Swap Sent.")
 
 			Address, err := sw.client.CreateAddress(ctx, mixin.CreateAddressInput{
 				AssetID:     s.AssetID,

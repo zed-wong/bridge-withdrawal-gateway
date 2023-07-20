@@ -69,8 +69,8 @@ func (sw *SnapshotsWorker) LoopSwap(ctx context.Context) {
 				sw.UpdateSwap(&SwapOrder{OrderState: new.State}, o.FollowID)
 
 				if new.State == "Done" {
-					time.Sleep(5*time.Second)
-					err := sw.withdrwal(ctx, o.AddressID, o.InputSnID, o.ToAddress, o.ToMemo, o.Amount)
+					time.Sleep(5 * time.Second)
+					err := sw.withdrawal(ctx, o.AddressID, o.InputSnID, o.ToAddress, o.ToMemo, o.Amount)
 					if err != nil {
 						log.Println("LoopSwap.withdrawal() => ", err)
 						return

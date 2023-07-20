@@ -1,0 +1,9 @@
+[bot]
+clientID = "uuid"
+sessionID = "uuid"
+privateKey = ""
+pinToken = ""
+pin = ""
+
+[db]
+dsn = "host=localhost user=user password=pass dbname=dbname port=5432 sslmode=disable"
